@@ -1,0 +1,44 @@
+# MD simulation of Ar thermal conductivity 
+# Initialization 
+units             lj 
+dimension         3 
+newton            on 
+boundary          p   p   p 
+atom_style        atomic 
+neighbor          0.3    bin 
+neigh_modify      check  yes 
+lattice           fcc   0.844 
+region            box  block -4  4  -4  4  -4  4  units lattice 
+create_box        1  box 
+create_atoms      1  box mass      1  1.0 
+velocity          all  create  0.71 458127641 mom yes  rot yes dist gaussian units box
+
+# LJ potential  
+pair_style        lj/cut 2.8 
+pair_coeff        1  1   1.0                  1.0                     
+#  LJ parameters for Ar-Ar  
+fix               temp all  tempberendsen 0.71 0.71 0.000466 
+fix               nve  all  nve 
+thermo_style      custom step temp etotal vol 
+thermo_modify     lost warn 
+thermo            100 
+
+# Run   
+timestep          0.000466 
+run               200000 
+reset_timestep    0
+
+# -------------- Flux calculation in nve --------------- 
+compute     myKE all ke/atom 
+compute     myPE all pe/atom 
+compute     myStress all stress/atom virial 
+variable    factor_ac equal 1.0 
+variable    factor_tc equal 1.3806504e-23*sqrt(1.67e-21/6.633e-26)/3.405e-10^2
+compute     jflux all heat/flux myKE myPE myStress 
+compute     tc all tc c_thermo_temp c_jflux v_factor_ac v_factor_tc iso first 10000 900000 100000 
+fix         tc_out  all  ave/time  1  1  1  c_tc   file  tc_time.dat 
+thermo_style      custom  step  temp 
+restart           100000   restart.*             
+run               1000000
+
+
